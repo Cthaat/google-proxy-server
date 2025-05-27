@@ -1,0 +1,60 @@
+# 生产环境优化的Dockerfile
+FROM node:20-alpine AS builder
+
+# 设置工作目录
+WORKDIR /app
+
+# 复制package文件
+COPY package*.json ./
+
+# 安装所有依赖（包括dev依赖用于构建）
+RUN npm ci
+
+# 复制源代码
+COPY . .
+
+# 生产环境镜像
+FROM node:20-alpine AS production
+
+# 安全更新和必要工具
+RUN apk update && \
+    apk upgrade && \
+    apk add --no-cache \
+    dumb-init \
+    wget \
+    curl && \
+    rm -rf /var/cache/apk/*
+
+# 创建非root用户
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S appuser -u 1001 -G nodejs
+
+# 设置工作目录
+WORKDIR /app
+
+# 复制package文件并安装生产依赖
+COPY package*.json ./
+RUN npm ci --only=production && \
+    npm cache clean --force
+
+# 从builder阶段复制应用代码
+COPY --from=builder --chown=appuser:nodejs /app/server.js ./
+COPY --from=builder --chown=appuser:nodejs /app/config.json ./
+
+# 创建必要的目录
+RUN mkdir -p /app/logs && \
+    chown -R appuser:nodejs /app
+
+# 切换到非root用户
+USER appuser
+
+# 暴露端口
+EXPOSE 3001
+
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3001/health || exit 1
+
+# 使用dumb-init启动应用
+ENTRYPOINT ["dumb-init", "--"]
+CMD ["node", "server.js"]
