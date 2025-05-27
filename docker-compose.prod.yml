@@ -17,7 +17,7 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - RATE_LIMIT_WINDOW=${RATE_LIMIT_WINDOW:-900000}
       - RATE_LIMIT_MAX=${RATE_LIMIT_MAX:-100}
-      - API_PASSWORD=${API_PASSWORD:-"google-maps-proxy-2024"}
+      - API_PASSWORD=${API_PASSWORD}
     volumes:
       - ./logs:/app/logs
       - /etc/localtime:/etc/localtime:ro

@@ -2,7 +2,7 @@
 # 测试Google Maps API代理服务器的密码认证功能
 
 param(
-    [string]$ServerUrl = "http://localhost:3002",
+    [string]$ServerUrl = "https://googlemap.edge2.xyz",
     [string]$Password = "google-maps-proxy-2024"
 )
 

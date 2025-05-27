@@ -13,7 +13,7 @@ services:
       - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
       - PORT=3002
       - CORS_ORIGIN=${CORS_ORIGIN:-"*"}
-      - API_PASSWORD=${API_PASSWORD:-"google-maps-proxy-2024"}
+      - API_PASSWORD=${API_PASSWORD}
     volumes:
       # 可选：如果需要持久化日志
       - ./logs:/app/logs
