@@ -136,7 +136,7 @@ function Test-ServiceHealth {
     
     do {
         try {
-            $response = Invoke-RestMethod -Uri "http://localhost:3001/health" -TimeoutSec 5
+            $response = Invoke-RestMethod -Uri "http://localhost:3002/health" -TimeoutSec 5
             if ($response.status -eq "OK") {
                 Write-ColorText "✅ 服务健康检查通过" "Green"
                 Write-ColorText "   状态: $($response.status)" "White"

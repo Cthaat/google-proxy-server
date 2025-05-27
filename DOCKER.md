@@ -91,7 +91,7 @@ docker-compose ps
 | 变量名 | 说明 | 默认值 |
 |--------|------|--------|
 | `GOOGLE_MAPS_API_KEY` | Google Maps API密钥 | 必需 |
-| `PORT` | 服务端口 | 3001 |
+| `PORT` | 服务端口 | 3002 |
 | `NODE_ENV` | 运行环境 | production |
 | `CORS_ORIGIN` | CORS来源 | * |
 | `LOG_LEVEL` | 日志级别 | info |
@@ -100,7 +100,7 @@ docker-compose ps
 
 ### 端口映射
 
-- 开发环境：`3001:3001`
+- 开发环境：`3002:3002`
 - 生产环境：`80:80`, `443:443`
 
 ## 📊 监控和维护
@@ -109,10 +109,10 @@ docker-compose ps
 
 ```bash
 # 容器内部健康检查
-wget --no-verbose --tries=1 --spider http://localhost:3001/health
+wget --no-verbose --tries=1 --spider http://localhost:3002/health
 
 # 外部健康检查
-curl http://localhost:3001/health
+curl http://localhost:3002/health
 ```
 
 ### 日志管理
@@ -170,7 +170,7 @@ openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
 
 2. **端口冲突**
    ```powershell
-   netstat -ano | findstr :3001
+   netstat -ano | findstr :3002
    ```
 
 3. **权限问题**

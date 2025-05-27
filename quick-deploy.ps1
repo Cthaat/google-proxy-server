@@ -52,6 +52,6 @@ if ($environment -eq "prod") {
     Write-Host "  HTTP: http://localhost" -ForegroundColor White
     Write-Host "  HTTPS: https://localhost (需要SSL证书)" -ForegroundColor White
 } else {
-    Write-Host "  服务: http://localhost:3001" -ForegroundColor White
+    Write-Host "  服务: http://localhost:3002" -ForegroundColor White
 }
-Write-Host "  健康检查: http://localhost:3001/health" -ForegroundColor White
+Write-Host "  健康检查: http://localhost:3002/health" -ForegroundColor White

@@ -52,7 +52,7 @@ Write-Host ""
 Write-Host "💡 使用提示:" -ForegroundColor Cyan
 Write-Host "   • 使用 Ctrl+C 停止服务器" -ForegroundColor White
 Write-Host "   • 服务器启动后可在微信小程序中使用" -ForegroundColor White
-Write-Host "   • 确保防火墙允许端口 3001" -ForegroundColor White
+Write-Host "   • 确保防火墙允许端口 3002" -ForegroundColor White
 
 Write-Host ""
 Write-Host "🚀 启动Google Maps API代理服务器..." -ForegroundColor Green
@@ -65,7 +65,7 @@ try {
 } catch {
     Write-Host ""
     Write-Host "❌ 服务器启动失败" -ForegroundColor Red
-    Write-Host "请检查端口3001是否被占用" -ForegroundColor Yellow
+    Write-Host "请检查端口3002是否被占用" -ForegroundColor Yellow
     Read-Host "按任意键退出"
     exit 1
 }

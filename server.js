@@ -14,6 +14,7 @@ const app = express();
 // 服务器配置
 const PORT = process.env.PORT || 3002;
 const GOOGLE_MAPS_BASE_URL = 'https://maps.googleapis.com/maps/api';
+const API_PASSWORD = process.env.API_PASSWORD || 'google-maps-proxy-2024';
 
 // 您的Google Maps API密钥 - 请替换为您的真实密钥
 const API_KEY = 'AIzaSyC9cGQ8JXj_E9Q6eTmyCAcSkxJCZSCyU-U';
@@ -35,6 +36,70 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+// 密码认证中间件
+function validatePassword(req, res, next) {
+  // 跳过公共路径的认证
+  const publicPaths = ['/health', '/api-status', '/'];
+  if (publicPaths.includes(req.path)) {
+    return next();
+  }
+
+  // 获取密码（支持多种传递方式）
+  let providedPassword = null;
+
+  // 1. 查询参数中的密码
+  if (req.query.password) {
+    providedPassword = req.query.password;
+  }
+  // 2. 请求头中的密码
+  else if (req.headers['x-api-password']) {
+    providedPassword = req.headers['x-api-password'];
+  }
+  // 3. Authorization Bearer token
+  else if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
+    providedPassword = req.headers.authorization.substring(7);
+  }
+  // 4. 请求体中的密码
+  else if (req.body && req.body.password) {
+    providedPassword = req.body.password;
+  }
+
+  // 验证密码
+  if (!providedPassword) {
+    return res.status(401).json({
+      status: 'UNAUTHORIZED',
+      error_message: '需要提供API密码',
+      hint: '请通过以下方式之一提供密码：',
+      methods: [
+        '查询参数: ?password=your_password',
+        '请求头: X-API-Password: your_password',
+        'Bearer Token: Authorization: Bearer your_password',
+        '请求体: {"password": "your_password"}'
+      ],
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  if (providedPassword !== API_PASSWORD) {
+    console.log(`🚫 密码验证失败 - IP: ${req.ip}, 提供的密码: ${providedPassword.substring(0, 3)}***`);
+    return res.status(403).json({
+      status: 'FORBIDDEN',
+      error_message: 'API密码不正确',
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  // 密码验证成功，记录日志
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`✅ 密码验证成功 - IP: ${req.ip}, 路径: ${req.path}`);
+  }
+
+  next();
+}
+
+// 应用密码认证中间件到所有路由
+app.use(validatePassword);
 
 /**
  * 通用的Google API代理函数
@@ -80,6 +145,7 @@ async function proxyGoogleAPI(endpoint, params) {
 /**
  * 地理编码API - 地址转坐标
  * GET /geocode/json?address=地址&language=zh-CN&region=CN
+ * POST /geocode/json - 支持请求体传参
  */
 app.get('/geocode/json', async (req, res) => {
   try {
@@ -94,9 +160,27 @@ app.get('/geocode/json', async (req, res) => {
   }
 });
 
+app.post('/geocode/json', async (req, res) => {
+  try {
+    // 合并查询参数和请求体参数
+    const params = { ...req.query, ...req.body };
+    // 移除密码参数，避免传递给Google API
+    delete params.password;
+    const result = await proxyGoogleAPI('/geocode/json', params);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({
+      status: 'ERROR',
+      error_message: error.message,
+      results: []
+    });
+  }
+});
+
 /**
  * 地址自动完成API
  * GET /place/autocomplete/json?input=搜索词&language=zh-CN
+ * POST /place/autocomplete/json - 支持请求体传参
  */
 app.get('/place/autocomplete/json', async (req, res) => {
   try {
@@ -111,9 +195,25 @@ app.get('/place/autocomplete/json', async (req, res) => {
   }
 });
 
+app.post('/place/autocomplete/json', async (req, res) => {
+  try {
+    const params = { ...req.query, ...req.body };
+    delete params.password;
+    const result = await proxyGoogleAPI('/place/autocomplete/json', params);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({
+      status: 'ERROR',
+      error_message: error.message,
+      predictions: []
+    });
+  }
+});
+
 /**
  * 地点详情API
  * GET /place/details/json?place_id=地点ID&language=zh-CN
+ * POST /place/details/json - 支持请求体传参
  */
 app.get('/place/details/json', async (req, res) => {
   try {
@@ -128,9 +228,25 @@ app.get('/place/details/json', async (req, res) => {
   }
 });
 
+app.post('/place/details/json', async (req, res) => {
+  try {
+    const params = { ...req.query, ...req.body };
+    delete params.password;
+    const result = await proxyGoogleAPI('/place/details/json', params);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({
+      status: 'ERROR',
+      error_message: error.message,
+      result: {}
+    });
+  }
+});
+
 /**
  * 附近搜索API
  * GET /place/nearbysearch/json?location=lat,lng&radius=半径&type=类型
+ * POST /place/nearbysearch/json - 支持请求体传参
  */
 app.get('/place/nearbysearch/json', async (req, res) => {
   try {
@@ -145,9 +261,25 @@ app.get('/place/nearbysearch/json', async (req, res) => {
   }
 });
 
+app.post('/place/nearbysearch/json', async (req, res) => {
+  try {
+    const params = { ...req.query, ...req.body };
+    delete params.password;
+    const result = await proxyGoogleAPI('/place/nearbysearch/json', params);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({
+      status: 'ERROR',
+      error_message: error.message,
+      results: []
+    });
+  }
+});
+
 /**
  * 文本搜索API
  * GET /place/textsearch/json?query=搜索词&language=zh-CN
+ * POST /place/textsearch/json - 支持请求体传参
  */
 app.get('/place/textsearch/json', async (req, res) => {
   try {
@@ -162,9 +294,25 @@ app.get('/place/textsearch/json', async (req, res) => {
   }
 });
 
+app.post('/place/textsearch/json', async (req, res) => {
+  try {
+    const params = { ...req.query, ...req.body };
+    delete params.password;
+    const result = await proxyGoogleAPI('/place/textsearch/json', params);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({
+      status: 'ERROR',
+      error_message: error.message,
+      results: []
+    });
+  }
+});
+
 /**
  * 距离矩阵API
  * GET /distancematrix/json?origins=起点&destinations=终点&mode=交通方式
+ * POST /distancematrix/json - 支持请求体传参
  */
 app.get('/distancematrix/json', async (req, res) => {
   try {
@@ -179,13 +327,44 @@ app.get('/distancematrix/json', async (req, res) => {
   }
 });
 
+app.post('/distancematrix/json', async (req, res) => {
+  try {
+    const params = { ...req.query, ...req.body };
+    delete params.password;
+    const result = await proxyGoogleAPI('/distancematrix/json', params);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({
+      status: 'ERROR',
+      error_message: error.message,
+      rows: []
+    });
+  }
+});
+
 /**
  * 路线规划API
  * GET /directions/json?origin=起点&destination=终点&mode=交通方式
+ * POST /directions/json - 支持请求体传参
  */
 app.get('/directions/json', async (req, res) => {
   try {
     const result = await proxyGoogleAPI('/directions/json', req.query);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({
+      status: 'ERROR',
+      error_message: error.message,
+      routes: []
+    });
+  }
+});
+
+app.post('/directions/json', async (req, res) => {
+  try {
+    const params = { ...req.query, ...req.body };
+    delete params.password;
+    const result = await proxyGoogleAPI('/directions/json', params);
     res.json(result);
   } catch (error) {
     res.status(500).json({
@@ -239,20 +418,37 @@ app.get('/', (req, res) => {
     name: 'Google Maps API 代理服务器',
     version: '1.0.0',
     description: '为微信小程序提供Google Maps API代理服务',
+    authentication: {
+      required: true,
+      password: '需要提供API密码才能访问API端点',
+      methods: [
+        '查询参数: ?password=your_password',
+        '请求头: X-API-Password: your_password',
+        'Bearer Token: Authorization: Bearer your_password',
+        '请求体: {"password": "your_password"}'
+      ]
+    },
     endpoints: [
       'GET /geocode/json - 地理编码',
+      'POST /geocode/json - 地理编码（支持请求体）',
       'GET /place/autocomplete/json - 地址自动完成',
+      'POST /place/autocomplete/json - 地址自动完成（支持请求体）',
       'GET /place/details/json - 地点详情',
+      'POST /place/details/json - 地点详情（支持请求体）',
       'GET /place/nearbysearch/json - 附近搜索',
+      'POST /place/nearbysearch/json - 附近搜索（支持请求体）',
       'GET /place/textsearch/json - 文本搜索',
+      'POST /place/textsearch/json - 文本搜索（支持请求体）',
       'GET /distancematrix/json - 距离矩阵',
+      'POST /distancematrix/json - 距离矩阵（支持请求体）',
       'GET /directions/json - 路线规划',
-      'GET /health - 健康检查',
-      'GET /api-status - API状态检查'
+      'POST /directions/json - 路线规划（支持请求体）',
+      'GET /health - 健康检查（无需密码）',
+      'GET /api-status - API状态检查（无需密码）'
     ],
     usage: {
       base_url: `http://localhost:${PORT}`,
-      example: `http://localhost:${PORT}/geocode/json?address=北京天安门&language=zh-CN`
+      example: `http://localhost:${PORT}/geocode/json?address=北京天安门&language=zh-CN&password=your_password`
     }
   });
 });

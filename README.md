@@ -1,5 +1,14 @@
 # Google Maps API本地代理服务器 - 完整使用指南
 
+> 🚀 **最新更新 (2025年5月27日)**
+> - ✅ **端口升级**: 从3001升级到3002端口
+> - ✅ **包管理器切换**: 从npm切换到yarn，提升依赖管理效率
+> - ✅ **智能IP检测**: 自动检测真实本地IP地址，排除VPN虚拟网络
+> - ✅ **密码认证**: 完整的API密码保护机制，支持4种认证方式
+> - ✅ **POST路由支持**: 所有API端点现已支持POST请求方式
+> - ✅ **微信小程序兼容**: 完全兼容微信小程序wx.request调用方式
+> - ✅ **全面测试**: 包含密码认证、POST端点、微信兼容性等完整测试套件
+
 ## 📋 目录
 - [快速开始](#快速开始)
 - [Docker部署](#docker部署)
@@ -47,7 +56,7 @@ npm start
 
 ### 4. 验证服务器
 
-打开浏览器访问：http://localhost:3001/health
+打开浏览器访问：http://localhost:3002/health
 
 看到以下响应表示成功：
 ```json
@@ -58,6 +67,129 @@ npm start
   "version": "1.0.0"
 }
 ```
+
+## 🔐 密码认证配置
+
+### 安全说明
+
+为了保护API免受未授权访问，本代理服务器现已实现密码认证功能。所有API端点（除健康检查等公共端点外）都需要提供正确的密码才能访问。
+
+### 密码配置
+
+**默认密码**: `google-maps-proxy-2024`
+
+**通过环境变量自定义密码**:
+```powershell
+# 设置自定义密码
+$env:API_PASSWORD = "your-custom-password"
+
+# 启动服务器
+./start.ps1
+```
+
+**Docker环境变量设置**:
+```yaml
+# docker-compose.yml
+environment:
+  - API_PASSWORD=your-custom-password
+```
+
+### 密码使用方式
+
+支持以下四种方式提供密码：
+
+#### 1. 查询参数方式
+```bash
+curl "http://localhost:3002/geocode/json?address=北京&password=google-maps-proxy-2024"
+```
+
+#### 2. 请求头方式
+```bash
+curl -H "X-API-Password: google-maps-proxy-2024" \
+     "http://localhost:3002/geocode/json?address=北京"
+```
+
+#### 3. Bearer Token方式
+```bash
+curl -H "Authorization: Bearer google-maps-proxy-2024" \
+     "http://localhost:3002/geocode/json?address=北京"
+```
+
+#### 4. 请求体方式（POST请求）
+```bash
+curl -X POST "http://localhost:3002/geocode/json" \
+     -H "Content-Type: application/json" \
+     -d '{"address": "北京", "password": "google-maps-proxy-2024"}'
+```
+
+### 微信小程序中的密码使用
+
+更新您的API调用代码：
+
+```javascript
+// utils/GoogleMapsApi.js
+function GoogleMapsApi() {
+  this.baseUrl = 'http://192.168.1.100:3002'; // 您的服务器IP
+  this.password = 'google-maps-proxy-2024';   // API密码
+}
+
+GoogleMapsApi.prototype.geocode = function(address) {
+  return new Promise((resolve, reject) => {
+    wx.request({
+      url: `${this.baseUrl}/geocode/json`,
+      data: {
+        address: address,
+        language: 'zh-CN',
+        password: this.password  // 添加密码参数
+      },
+      success: (res) => {
+        if (res.data.status === 'OK') {
+          resolve({
+            success: true,
+            data: {
+              latitude: res.data.results[0].geometry.location.lat,
+              longitude: res.data.results[0].geometry.location.lng
+            }
+          });
+        } else {
+          reject(new Error(res.data.error_message || '地理编码失败'));
+        }
+      },
+      fail: reject
+    });
+  });
+};
+```
+
+### 密码认证测试
+
+运行密码认证测试脚本：
+```powershell
+# 测试密码认证功能
+./test-password-auth.ps1
+
+# 使用自定义密码测试
+./test-password-auth.ps1 -Password "your-custom-password"
+
+# 测试不同服务器地址
+./test-password-auth.ps1 -ServerUrl "http://192.168.1.100:3002"
+```
+
+### 无需密码的公共端点
+
+以下端点无需密码即可访问：
+- `GET /health` - 健康检查
+- `GET /api-status` - API状态检查  
+- `GET /` - API文档和端点列表
+
+### 安全建议
+
+🔒 **生产环境安全提醒**：
+- 修改默认密码为复杂密码
+- 使用HTTPS传输密码
+- 定期更换密码
+- 考虑实施IP白名单
+- 监控异常访问尝试
 
 ## 🐳 Docker部署
 
@@ -174,17 +306,17 @@ docker stats
 **Q2: 端口冲突**
 ```powershell
 # 查看端口占用
-netstat -ano | findstr :3001
+netstat -ano | findstr :3002
 
 # 修改docker-compose.yml中的端口映射
 ports:
-  - "3002:3001"  # 改为其他端口
+  - "3003:3002"  # 改为其他端口
 ```
 
 **Q3: 网络连接问题**
 ```powershell
 # 测试容器网络
-docker exec -it google-maps-proxy wget -qO- http://localhost:3001/health
+docker exec -it google-maps-proxy wget -qO- http://localhost:3002/health
 
 # 检查防火墙设置
 ```
@@ -198,7 +330,7 @@ docker exec -it google-maps-proxy wget -qO- http://localhost:3001/health
 ```json
 {
   "server": {
-    "port": 3001,           // 服务器端口
+    "port": 3002,           // 服务器端口
     "timeout": 10000        // 请求超时时间(毫秒)
   },
   "google": {
@@ -234,7 +366,7 @@ npm start
 ```javascript
 function GoogleMapsApi(apiKey) {
   this.apiKey = apiKey || ''; // 代理服务器会自动添加API密钥
-  this.baseUrl = 'http://localhost:3001'; // 使用本地代理服务器
+  this.baseUrl = 'http://localhost:3002'; // 使用本地代理服务器
   this.initialized = true;
 }
 ```
@@ -269,13 +401,13 @@ function GoogleMapsApi(apiKey) {
 
 #### Q1: 服务器启动失败
 ```
-错误: listen EADDRINUSE :::3001
+错误: listen EADDRINUSE :::3002
 ```
 
 **解决方案：**
 ```powershell
-# 查看占用端口3001的进程
-netstat -ano | findstr :3001
+# 查看占用端口3002的进程
+netstat -ano | findstr :3002
 
 # 终止占用进程（替换PID）
 taskkill /PID <进程ID> /F
@@ -327,7 +459,7 @@ app.use(cors({
 #### 检查服务状态
 ```powershell
 # 访问健康检查端点
-curl http://localhost:3001/health
+curl http://localhost:3002/health
 
 # 查看服务器日志
 docker-compose logs -f
@@ -395,7 +527,7 @@ const axios = require('axios');
 
 async function callGoogleMapsProxy() {
   try {
-    const response = await axios.get('http://localhost:3001/geocode/json', {
+    const response = await axios.get('http://localhost:3002/geocode/json', {
       params: {
         address: '北京天安门',
         language: 'zh-CN'
@@ -435,7 +567,7 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install --production
 COPY . .
-EXPOSE 3001
+EXPOSE 3002
 CMD ["npm", "start"]
 ```
 
@@ -446,7 +578,7 @@ services:
   google-proxy:
     build: .
     ports:
-      - "3001:3001"
+      - "3002:3002"
     environment:
       - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
       - NODE_ENV=production
@@ -459,7 +591,7 @@ services:
 
 ```env
 GOOGLE_MAPS_API_KEY=your_actual_api_key_here
-PORT=3001
+PORT=3002
 NODE_ENV=development
 CORS_ORIGIN=http://localhost:3000
 ```
@@ -470,7 +602,7 @@ CORS_ORIGIN=http://localhost:3000
 require('dotenv').config();
 
 const API_KEY = process.env.GOOGLE_MAPS_API_KEY || 'your_default_key';
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3002;
 ```
 
 ## 📊 监控和维护
@@ -485,7 +617,7 @@ const axios = require('axios');
 
 setInterval(async () => {
   try {
-    await axios.get('http://localhost:3001/health');
+    await axios.get('http://localhost:3002/health');
     console.log('✅ 服务器健康');
   } catch (error) {
     console.error('❌ 服务器异常:', error.message);
