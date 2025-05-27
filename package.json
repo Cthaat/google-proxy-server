@@ -4,7 +4,13 @@
   "description": "本地Google Maps API代理服务器，用于微信小程序",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "node server.js",
+    "docker:build": "docker build -t google-maps-proxy:yarn .",
+    "docker:build:prod": "docker build -t google-maps-proxy:prod-yarn -f Dockerfile.prod .",
+    "docker:run": "docker run -p 3001:3001 google-maps-proxy:yarn",
+    "docker:compose": "docker-compose up -d",
+    "docker:clean": "docker system prune -f"
   },
   "keywords": [
     "google-maps",

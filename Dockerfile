@@ -12,12 +12,12 @@ WORKDIR /app
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nextjs -u 1001
 
-# 安装dumb-init用于处理信号
-RUN apk add --no-cache dumb-init
+# 安装dumb-init和yarn用于处理信号和包管理
+RUN apk add --no-cache dumb-init yarn
 
 # 复制package文件并安装依赖
-COPY package*.json ./
-RUN npm ci --only=production && npm cache clean --force
+COPY package*.json yarn.lock* ./
+RUN yarn install --production --frozen-lockfile && yarn cache clean
 
 # 复制源代码
 COPY --chown=nextjs:nodejs . .
@@ -39,4 +39,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
 
 # 使用dumb-init启动应用
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["npm", "start"]
+CMD ["yarn", "start"]
