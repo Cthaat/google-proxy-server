@@ -7,10 +7,12 @@
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
+const os = require('os');
+const { execSync } = require('child_process');
 const app = express();
 
 // 服务器配置
-const PORT = 3001;
+const PORT = process.env.PORT || 3002;
 const GOOGLE_MAPS_BASE_URL = 'https://maps.googleapis.com/maps/api';
 
 // 您的Google Maps API密钥 - 请替换为您的真实密钥
@@ -284,11 +286,138 @@ app.use((req, res) => {
   });
 });
 
+/**
+ * 获取默认网关对应的本地IP地址
+ * @returns {string|null} IP地址或null
+ */
+function getIPByDefaultGateway() {
+  try {
+    // Windows系统获取默认网关
+    const result = execSync('route print 0.0.0.0', { encoding: 'utf8', timeout: 5000 });
+    const lines = result.split('\n');
+
+    for (const line of lines) {
+      if (line.includes('0.0.0.0') && line.includes('0.0.0.0')) {
+        const parts = line.trim().split(/\s+/);
+        if (parts.length >= 4) {
+          const localIP = parts[3]; // 本地IP地址
+          // 验证是否为有效的局域网IP
+          if (localIP && localIP.match(/^(\d{1,3}\.){3}\d{1,3}$/) &&
+            (localIP.startsWith('192.168.') || localIP.startsWith('10.') ||
+              (localIP.startsWith('172.') && parseInt(localIP.split('.')[1]) >= 16 && parseInt(localIP.split('.')[1]) <= 31))) {
+            console.log(`🎯 通过默认网关检测到真实IP: ${localIP}`);
+            return localIP;
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.log('⚠️  无法通过默认网关获取IP:', error.message);
+  }
+  return null;
+}
+
+/**
+ * 获取本机真实的局域网IP地址（排除VPN虚拟网卡）
+ * @returns {string} 局域网IP地址
+ */
+function getLocalIPAddress() {
+  // 方法1: 尝试通过默认网关获取真实IP
+  const gatewayIP = getIPByDefaultGateway();
+  if (gatewayIP) {
+    return gatewayIP;
+  }
+
+  // 方法2: 通过网络接口筛选
+  const interfaces = os.networkInterfaces();
+
+  // VPN和虚拟网卡的常见关键词
+  const vpnKeywords = [
+    'tap', 'tun', 'vpn', 'virtual', 'vmware', 'vbox', 'hyper-v',
+    'docker', 'wsl', 'loopback', 'teredo', 'isatap', 'pptp',
+    'openvpn', 'wireguard', 'nordvpn', 'expressvpn', 'clash',
+    'wintun', 'utun', 'cscotun'
+  ];
+
+  // 物理网卡的常见关键词（Windows）
+  const physicalKeywords = [
+    'ethernet', 'wi-fi', 'wireless', 'wlan', 'lan', 'realtek',
+    'intel', 'broadcom', 'qualcomm', 'atheros'
+  ];
+
+  // 优先级排序
+  const physicalInterfaces = [];
+  const otherInterfaces = [];
+
+  for (const interfaceName in interfaces) {
+    const networkInterface = interfaces[interfaceName];
+    const lowerName = interfaceName.toLowerCase();
+
+    // 检查是否为VPN或虚拟网卡
+    const isVirtual = vpnKeywords.some(keyword => lowerName.includes(keyword));
+    const isPhysical = physicalKeywords.some(keyword => lowerName.includes(keyword));
+
+    for (const iface of networkInterface) {
+      // 只处理IPv4地址，跳过内部地址
+      if (iface.family === 'IPv4' && !iface.internal) {
+        const ipInfo = {
+          name: interfaceName,
+          address: iface.address,
+          isVirtual: isVirtual,
+          isPhysical: isPhysical
+        };
+
+        // 判断是否为真实的局域网地址
+        const ip = iface.address;
+        const isPrivateIP = (
+          ip.startsWith('192.168.') ||
+          ip.startsWith('10.') ||
+          (ip.startsWith('172.') && parseInt(ip.split('.')[1]) >= 16 && parseInt(ip.split('.')[1]) <= 31)
+        );
+
+        if (isPrivateIP) {
+          if (isPhysical || !isVirtual) {
+            physicalInterfaces.push(ipInfo);
+          } else {
+            otherInterfaces.push(ipInfo);
+          }
+        }
+      }
+    }
+  }
+
+  // 优先返回物理网卡的IP
+  if (physicalInterfaces.length > 0) {
+    console.log(`🌐 检测到物理网卡: ${physicalInterfaces[0].name} - ${physicalInterfaces[0].address}`);
+    return physicalInterfaces[0].address;
+  }
+
+  // 如果没有物理网卡，返回其他可用的
+  if (otherInterfaces.length > 0) {
+    console.log(`⚠️  使用虚拟网卡: ${otherInterfaces[0].name} - ${otherInterfaces[0].address}`);
+    return otherInterfaces[0].address;
+  }
+
+  console.log('⚠️  未找到可用的局域网IP，使用localhost');
+  return 'localhost';
+}
+
 // 启动服务器
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
+  const localIP = getLocalIPAddress();
+
   console.log('🚀 Google Maps API代理服务器启动成功！');
-  console.log(`📍 服务地址: http://localhost:${PORT}`);
-  console.log(`🔍 健康检查: http://localhost:${PORT}/health`);
+  console.log(`📍 本地地址: http://localhost:${PORT}`);
+  console.log(`🌐 局域网地址: http://${localIP}:${PORT}`);
+  console.log(`🔍 健康检查: http://${localIP}:${PORT}/health`);
+  console.log(`📱 微信小程序配置地址: ${localIP}:${PORT}`);
+  console.log('');
+  console.log('📋 可用的API端点:');
+  console.log(`   • 地理编码: http://${localIP}:${PORT}/geocode/json`);
+  console.log(`   • 逆地理编码: http://${localIP}:${PORT}/geocode/json`);
+  console.log(`   • 地点搜索: http://${localIP}:${PORT}/place/textsearch/json`);
+  console.log(`   • 地点详情: http://${localIP}:${PORT}/place/details/json`);
+  console.log(`   • 路线规划: http://${localIP}:${PORT}/directions/json`);
 });
 
 // 优雅关闭

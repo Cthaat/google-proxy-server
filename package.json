@@ -8,7 +8,7 @@
     "dev": "node server.js",
     "docker:build": "docker build -t google-maps-proxy:yarn .",
     "docker:build:prod": "docker build -t google-maps-proxy:prod-yarn -f Dockerfile.prod .",
-    "docker:run": "docker run -p 3001:3001 google-maps-proxy:yarn",
+    "docker:run": "docker run -p 3002:3002 google-maps-proxy:yarn",
     "docker:compose": "docker-compose up -d",
     "docker:clean": "docker system prune -f"
   },

@@ -59,7 +59,7 @@ function Test-Image {
     Write-ColorText "🧪 测试镜像: $ImageName" "Yellow"
     
     # 启动容器进行测试
-    $containerId = docker run -d -p 3002:3001 --name test-container $ImageName
+    $containerId = docker run -d -p 3003:3002 --name test-container $ImageName
     
     if ($LASTEXITCODE -ne 0) {
         Write-ColorText "❌ 容器启动失败" "Red"
@@ -70,7 +70,7 @@ function Test-Image {
     
     try {
         # 测试健康检查端点
-        $response = Invoke-WebRequest -Uri "http://localhost:3002/health" -TimeoutSec 10
+        $response = Invoke-WebRequest -Uri "http://localhost:3003/health" -TimeoutSec 10
         if ($response.StatusCode -eq 200) {
             Write-ColorText "✅ 健康检查通过" "Green"
             $success = $true
@@ -130,8 +130,8 @@ if (-not $NoBuild) {
 Show-ImageInfo
 
 Write-ColorText "`n🚀 使用方法:" "Yellow"
-Write-ColorText "开发环境: docker run -p 3001:3001 google-maps-proxy:dev-yarn" "White"
-Write-ColorText "生产环境: docker run -p 3001:3001 google-maps-proxy:prod-yarn" "White"
+Write-ColorText "开发环境: docker run -p 3002:3002 google-maps-proxy:dev-yarn" "White"
+Write-ColorText "生产环境: docker run -p 3002:3002 google-maps-proxy:prod-yarn" "White"
 Write-ColorText "Compose启动: docker-compose up -d" "White"
 
 Write-ColorText "`n✨ 完成!" "Green"
